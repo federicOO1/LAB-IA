@@ -1,6 +1,6 @@
 # Segmentazione Semantica - Potsdam Dataset
 
-Nella repo GitHub ci sono tutti i  file .py che ho usato per il progetto. Ho salvato anche tutti i modelli nelle varie fasi del completamento del progetto nella cartella _models_. 
+Nella repo GitHub ci sono tutti i  file .py che ho usato per il progetto. Ho salvato anche tutti i modelli nelle varie fasi del completamento del progetto nella cartella _models_ (ancora devo aggiungerla su github). 
 
 ## Baseline
 

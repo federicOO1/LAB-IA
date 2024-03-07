@@ -5,7 +5,7 @@ Nella repo GitHub ci sono tutti i  file .py che ho usato per il progetto. Ho sal
 ## Baseline
 
 In _baseline_ ci sono tutti i tentativi fatti con diversi learning rate senza usare uno scheduler che lo modificasse con l'avanzare delle epoche.
-Per ogni modello sono salvate anche la val_loss e train_loss e un file cdv con tutte le metriche, seguendo questo oridine:
+Per ogni modello sono salvate anche la val_loss e train_loss e un file csv con tutte le metriche, seguendo questo ordine:
 - modello 1: lr=1e-1
 - modello 2: lr=1e-2
 -
@@ -25,4 +25,4 @@ L'IoU aveva alcune classi che presentavano dei valori molto minori delle altre, 
 
 ## Test
 
-Ho usato un gruppo di immagini per ottenere le predizioni e testare il modello. Come si vedeva dalla validazione ci sono delle classi che vengono predette meno di altre. L'accuracy delle predizioni sul set di test è in media circa tra il 75% e 80%
+Ho usato un gruppo di immagini per ottenere le predizioni e testare il modello. All'interno della cartella _final-checkpoint_ ci sono sia gli output ottenuti in fase di test che le metriche calcolate in fase di validazione. Come si vedeva dalla validazione ci sono delle classi che vengono predette peggio di altre. L'accuracy delle predizioni sul set di test è in media circa tra il 75% e 80%

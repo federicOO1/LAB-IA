@@ -19,7 +19,7 @@ Analizzando le metriche ho deciso di usare come lr iniziale 1e-3.
 
 ## Final model
 
-Ho trainato il modello per 50 epoche, aggiungendo come optimzer Adam e uno scheduler del lr. Ho visto che che la train_loss e la val_loss continuavano a scendere, fino quasi a stabilizzarsi verso la fine.
+Ho addestrato il modello per 50 epoche, aggiungendo come optimzer Adam e uno scheduler del lr. Ho visto che che la train_loss e la val_loss continuavano a scendere, fino quasi a stabilizzarsi verso la fine.
 
 L'IoU aveva alcune classi che presentavano dei valori molto minori delle altre, penso sia dovuto alle immagini usate per effettuare il train. Tutte le metriche di validazione sono salvate nel rispettivo file .csv
 

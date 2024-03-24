@@ -25,13 +25,13 @@ LEARNING_RATE = 0.001
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 RGBIR_folder = 'data/4_Ortho_RGBIR'
 LABELS_folder = 'data/5_Labels_all'
-BATCH_SIZE = 4
+BATCH_SIZE = 6
 LOAD_MODEL = False
-NUM_EPOCHS = 5
+NUM_EPOCHS = 50
 NUM_CLASSES = 6
 NUM_WORKERS = 2
-IMAGE_HEIGHT = 256
-IMAGE_WIDTH = 256
+IMAGE_HEIGHT = 512
+IMAGE_WIDTH = 512
 best_mIoU = 0.0
 save_best_model = True
 train_losses_global = []
@@ -40,7 +40,7 @@ val_iou_global = []
 
 
 
-def train(model, loader, criterion, optimizer, device, scaler):
+def train(model, loader, criterion, optimizer, scheduler, device):
     model.train()
     running_loss = 0.0
     for inputs, targets in tqdm(loader):
@@ -48,10 +48,10 @@ def train(model, loader, criterion, optimizer, device, scaler):
         optimizer.zero_grad()
         outputs = model(inputs)
         loss = criterion(outputs, targets)
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
         running_loss += loss.item() * inputs.size(0)
+        loss.backward()
+        optimizer.step()
+        
     return running_loss / len(loader.dataset)
 
 def evaluate(model, loader, device, num_classes):
@@ -65,8 +65,7 @@ def evaluate(model, loader, device, num_classes):
         for inputs, targets in tqdm(loader):
             inputs, targets = inputs.to(device), targets.to(device, dtype=torch.long)
             outputs = model(inputs)
-            probabilities = F.softmax(outputs, dim=1)
-            predictions = probabilities.argmax(dim=1)
+            predictions = outputs.argmax(dim=1)
             ious_per_batch = calculate_iou(predictions, targets, num_classes)
             miou = calculate_miou(predictions, targets, num_classes)
             total_accuracy = calculate_overall_accuracy(predictions, targets)
@@ -89,25 +88,28 @@ def main():
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("Working on ",device)
+        #total_mean = torch.tensor([86.7113, 92.8464, 86.2080, 98.1235]) # per non far girare ogni volta il loop per il calcolo della media e della std
+        #total_std = torch.tensor([35.2340, 35.0720, 36.5135, 35.6512])
+
         baseline_transform = A.Compose([
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.Normalize(
-                    mean=(0, 0, 0, 0),
-                    std=(1, 1, 1, 1),
-                    max_pixel_value=255.0,
+                    mean=torch.tensor(0,0,0,0),
+                    std=torch.tensor(1,1,1,1),
+                    max_pixel_value=255.0
                     ),
         ToTensorV2(always_apply=True),
                 ]
             )
+        
         train_transform = A.Compose([
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
             A.RandomRotate90(),
             A.VerticalFlip(),
             A.HorizontalFlip(),
             A.Normalize(
-                    mean=(0, 0, 0, 0),
-                    std=(1, 1, 1, 1),
-                    max_pixel_value=255.0,
+                    mean=torch.tensor(0,0,0,0),
+                    std=torch.tensor(1,1,1,1)
                     ),
         ToTensorV2(always_apply=True),
                 ]
@@ -116,9 +118,8 @@ def main():
                 [
                     A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
                     A.Normalize(
-                        mean=(0, 0, 0, 0),
-                        std=(1, 1, 1, 1),
-                        max_pixel_value=255.0,
+                        mean=torch.tensor(0,0,0,0),
+                        std=torch.tensor(1,1,1,1),
                     ),
                     ToTensorV2(),
                 ]
@@ -129,12 +130,11 @@ def main():
         params_to_update = model.parameters()
 
         optimizer = optim.Adam(params_to_update, lr=LEARNING_RATE)
-        #scheduler = ExponentialLR(optimizer, gamma=0.95)
+        scheduler = ExponentialLR(optimizer, gamma=0.95)
         criterion = nn.CrossEntropyLoss()
-        scaler = torch.cuda.amp.GradScaler()
 
         if LOAD_MODEL:
-            loaded_data = torch.load('models/model_and_metrics.pth')
+            loaded_data = torch.load('models/model_checkpoint.pth')
 
             model.load_state_dict(loaded_data['model_state_dict'])
             optimizer.load_state_dict(loaded_data['optimizer_state_dict'])
@@ -151,7 +151,7 @@ def main():
 
         # Definisci l'ottimizzatore
 
-        transformed_dataset_train = PotsdamDataset(RGBIR_folder, LABELS_folder, 'train', transform=baseline_transform, size=IMAGE_HEIGHT)
+        transformed_dataset_train = PotsdamDataset(RGBIR_folder, LABELS_folder, 'train', transform=train_transform, size=IMAGE_HEIGHT)
         transformed_dataset_val = PotsdamDataset(RGBIR_folder, LABELS_folder, 'val', transform=val_transform, size=IMAGE_HEIGHT)
 
         train_loader = DataLoader(transformed_dataset_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
@@ -160,7 +160,7 @@ def main():
 
         for epoch in range(NUM_EPOCHS):
             # Fase di addestramento
-            train_loss = train(model, train_loader, criterion, optimizer, device, scaler)
+            train_loss = train(model, train_loader, criterion, optimizer, scheduler, device)
             train_losses.append(train_loss)
 
             # Fase idi validazione
@@ -180,15 +180,15 @@ def main():
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 }
-                save_path = 'models/baseline/model_3_2.pth'
+                save_path = 'models/model_checkpoint.pth'
                 torch.save(saved_data, save_path)
 
-            #scheduler.step()
+            scheduler.step()
 
         # Riepilogo
         print(f'Miglior mIoU: {best_miou:.4f} all\'epoca {best_epoch}')
         plot_metrics(train_losses, val_losses, val_iou, val_miou, val_accuracy)
-        create_csv_file('models/baseline/metrics_checkpoint_3_2.csv', train_losses, val_losses, val_iou, val_miou, val_accuracy)
+        create_csv_file('metrics_checkpoint.csv', train_losses, val_losses, val_iou, val_miou, val_accuracy)
 
 if __name__ == "__main__":
     start_time = time.time()
